@@ -1,8 +1,10 @@
+// src/app/add-expense/add-expense.ts
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../data.service';
 import { MatButtonModule } from '@angular/material/button';
+import { PopupService } from '../popup-message/popup.service';
 
 @Component({
   selector: 'app-add-expense',
@@ -12,6 +14,7 @@ import { MatButtonModule } from '@angular/material/button';
 })
 export class AddExpense {
   dataService = inject(DataService);
+  popup = inject(PopupService);
 
   desc = '';
   amount: number | null = null;
@@ -23,27 +26,32 @@ export class AddExpense {
   }
 
   addExpense() {
-    const expense = {
-      desc: this.desc.trim(),
-      amount: this.amount,
-      date: new Date(this.date).toISOString(),
-      category: this.category || undefined,
-    };
+  if (!this.desc || !this.amount || !this.date) {
+    this.popup.show('Please fill all required fields', 'error');
+    return;
+  }
 
-    if (!expense.desc || !expense.amount || !expense.date) {
-      alert('Please fill all required fields');
-      return;
-    }
+  const expense = {
+    description: this.desc.trim(), // ✅ changed key from 'desc' to 'description'
+    amount: this.amount,
+    date: new Date(this.date).toISOString(),
+    category: this.category ? { title: this.category } : undefined
+  };
 
-    this.dataService.addExpense(expense).subscribe({
-      next: () => {
-        alert('Expense added');
+
+  this.dataService.addExpense(expense).subscribe({
+    next: () => {
+        this.popup.show('Expense added successfully!', 'success');
         this.desc = '';
         this.amount = null;
         this.date = '';
         this.category = '';
       },
-      error: err => alert(err.error.detail || 'Failed to add expense'),
+      error: err => {
+        const message = err.error?.detail || JSON.stringify(err.error);
+        this.popup.show(`Error: ${message}`, 'error');
+      }
     });
   }
+
 }

@@ -5,6 +5,8 @@ from bson.objectid import ObjectId
 from models import Category, Expense, Profile
 from auth_utils import decode_token
 from typing import Optional
+from models import ProfileUpdate
+from auth_utils import hash_password
 
 router = APIRouter()
 
@@ -16,7 +18,7 @@ category_collection = db["categories"]
 profile_collection = db["profiles"]
 user_collection.create_index("email", unique=True)
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/db")
 
 def get_current_user_id(token: str = Depends(oauth2_scheme)) -> str:
     user_id = decode_token(token)
@@ -37,8 +39,20 @@ def add_category(category: Category, user_id: str = Depends(get_current_user_id)
 
 @router.get("/categories")
 def get_categories(user_id: str = Depends(get_current_user_id)):
-    cats = list(category_collection.find({"user_id": user_id}, {"user_id": 0}))
-    return cats
+    cats = category_collection.find(
+        {"user_id": user_id},
+        {"title": 1, "_id": 0}
+    )
+    return [cat["title"] for cat in cats]
+
+
+@router.delete("/categories/{title}")
+def delete_category(title: str, user_id: str = Depends(get_current_user_id)):
+    result = category_collection.delete_one({"user_id": user_id, "title": title})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return {"message": "Category deleted"}
+
 
 @router.post("/expenses")
 def add_expense(expense: Expense, user_id: str = Depends(get_current_user_id)):
@@ -48,9 +62,20 @@ def add_expense(expense: Expense, user_id: str = Depends(get_current_user_id)):
     return {"id": str(result.inserted_id)}
 
 @router.get("/expenses")
-def get_expenses(user_id: str = Depends(get_current_user_id)):
-    exps = list(expense_collection.find({"user_id": user_id}))
-    return [serialize(e) for e in exps]
+def get_expenses(
+    page: int = 1,
+    pageSize: int = 4,
+    user_id: str = Depends(get_current_user_id)
+):
+    skip = (page - 1) * pageSize
+    total = expense_collection.count_documents({"user_id": user_id})
+    expenses = list(
+        expense_collection.find({"user_id": user_id})
+        .skip(skip)
+        .limit(pageSize)
+    )
+    return {"data": [serialize(e) for e in expenses], "total": total}
+
 
 @router.delete("/expenses/{expense_id}")
 def delete_expense(expense_id: str, user_id: str = Depends(get_current_user_id)):
@@ -66,8 +91,35 @@ def get_profile(user_id: str = Depends(get_current_user_id)):
 
 @router.post("/profile")
 def save_profile(profile: Profile, user_id: str = Depends(get_current_user_id)):
-    profile_collection.delete_many({"user_id": user_id})
     d = profile.dict()
     d["user_id"] = user_id
-    profile_collection.insert_one(d)
+    profile_collection.update_one(
+        {"user_id": user_id},
+        {"$set": d},
+        upsert=True
+    )
     return {"message": "Profile saved"}
+
+
+
+otp_collection = db["otp_verification"]
+
+@router.put("/profile")
+def update_profile(profile: ProfileUpdate, user_id: str = Depends(get_current_user_id)):
+    id=ObjectId(user_id)
+    print(user_id)
+    existing = user_collection.find_one({"_id": id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    update_fields = {k: v for k, v in profile.dict().items() if v is not None}
+
+    # Optional: hash password if included
+    if "password" in update_fields:
+        update_fields["password"] = hash_password(update_fields["password"])
+
+    user_collection.update_one(
+        {"_id": id},
+        {"$set": update_fields}
+    )
+    return {"message": "Profile updated"}

@@ -1,105 +1,97 @@
-import { Injectable, signal, computed } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Injectable, computed, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { AuthService } from './auth/auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class DataService {
-  private baseUrl = 'http://localhost:8000';
-
+  private api = 'http://localhost:8000/db';
+  categories = signal<any[]>([]);
   expenses = signal<any[]>([]);
-  categories = signal<string[]>([]);
-  profile = signal<any>(null);
+  profile = signal<any>({});
+  totalExpenseCount = signal(0); 
+  constructor(private http: HttpClient, private auth: AuthService) {}
 
-  constructor(private http: HttpClient) {}
-
-  private getAuthHeaders(): HttpHeaders {
-    const token = localStorage.getItem('token');
-    return new HttpHeaders({ Authorization: `Bearer ${token}` });
+  // Categories
+  loadCategories() {
+    this.http
+      .get<any[]>(`${this.api}/categories`, {
+        headers: this.auth.getAuthHeader(),
+      })
+      .subscribe((data) => this.categories.set(data));
   }
 
-  // 💸 Expenses
-  loadExpenses() {
-    this.http.get<any[]>(`${this.baseUrl}/expenses`, { headers: this.getAuthHeaders() }).subscribe({
-      next: (data) => this.expenses.set(data),
-      error: (err) => console.error('Failed to load expenses:', err),
+  addCategory(title: string) {
+    return this.http.post(
+      `${this.api}/categories`,
+      { title },
+      {
+        headers: this.auth.getAuthHeader(),
+      }
+    );
+  }
+
+  deleteCategory(id: string) {
+    return this.http.delete(`${this.api}/categories/${id}`, {
+      headers: this.auth.getAuthHeader(),
     });
   }
 
-  addExpense(expense: any) {
-    return this.http.post(`${this.baseUrl}/expenses`, expense, {
-      headers: this.getAuthHeaders(),
+  // Expenses
+  loadExpenses(page:number, pageSize:number) {
+    this.http
+      .get<any>(`${this.api}/expenses?page=${page}&pageSize=${pageSize}`, {
+        headers: this.auth.getAuthHeader(),
+      })
+      .subscribe((res) => {
+        this.expenses.set(res.data);
+        this.totalExpenseCount.set(res.total);
+      });
+  }
+
+  addExpense(data: any) {
+    return this.http.post(`${this.api}/expenses`, data, {
+      headers: this.auth.getAuthHeader(),
     });
   }
 
   deleteExpense(id: string) {
-    return this.http.delete(`${this.baseUrl}/expenses/${id}`, {
-      headers: this.getAuthHeaders(),
+    return this.http.delete(`${this.api}/expenses/${id}`, {
+      headers: this.auth.getAuthHeader(),
     });
   }
 
-  // 📂 Categories
-  loadCategories() {
-    this.http.get<any[]>(`${this.baseUrl}/categories`, {
-      headers: this.getAuthHeaders(),
-    }).subscribe({
-      next: (data) => {
-        if (Array.isArray(data)) {
-          this.categories.set(data.map(c => c.title));
-        } else {
-          console.error('Unexpected categories response:', data);
-        }
-      },
-      error: (err) => console.error('Failed to load categories:', err),
-    });
-  }
-
-  addCategory(category: string) {
-    return this.http.post(`${this.baseUrl}/categories`, { title: category }, {
-      headers: this.getAuthHeaders(),
-    });
-  }
-
-  deleteCategory(title: string) {
-    return this.http.delete(`${this.baseUrl}/categories/${title}`, {
-      headers: this.getAuthHeaders(),
-    });
-  }
-
-  // 👤 Profile
+  // Profile
   loadProfile() {
-    this.http.get(`${this.baseUrl}/profile`, {
-      headers: this.getAuthHeaders(),
-    }).subscribe({
-      next: (data) => this.profile.set(data),
-      error: () => {
-        console.warn('No profile found or unauthorized.');
-        this.profile.set(null);
-      },
-    });
-  }
-
-  saveProfile(profileData: any) {
-    return this.http.post(`${this.baseUrl}/profile`, profileData, {
-      headers: this.getAuthHeaders(),
-    });
-  }
-
-  // 💰 Computed Balance
-  availableBalance = computed(() => {
-    const prof = this.profile();
-    const exp = this.expenses();
-    if (!prof) return 0;
-
-    const now = new Date();
-    const lastMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
-    const lastMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-
-    const lastMonthExpenses = exp
-      .filter(e => {
-        const d = new Date(e.date);
-        return d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
+    this.http
+      .get(`${this.api}/profile`, {
+        headers: this.auth.getAuthHeader(),
       })
-      .reduce((sum, e) => sum + (e.amount || 0), 0);
+      .subscribe((p) => this.profile.set(p || {}));
+  }
 
-    return prof.totalBudget - lastMonthExpenses;
+  saveProfile(data: any) {
+    return this.http.post(`${this.api}/profile`, data, {
+      headers: this.auth.getAuthHeader(),
+    });
+    
+  }
+
+  // Derived value
+  availableBalance = computed(() => {
+    const total = this.profile()?.totalBudget || 0;
+    const month = new Date().getMonth();
+    const spent = this.expenses()
+      .filter((e) => new Date(e.date).getMonth() === month)
+      .reduce((sum, e) => sum + e.amount, 0);
+    return total - spent;
   });
+
+
+  updateProfile(data: any) {
+    // console.log(this.auth.getAuthHeader().get('Authorization'));
+  return this.http.put(`http://localhost:8000/db/profile`, data, {
+    headers: this.auth.getAuthHeader(),
+  });
+}
+
 }

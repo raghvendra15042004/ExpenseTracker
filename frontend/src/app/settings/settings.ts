@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { DataService } from '../data.service';
 import { AuthService } from '../auth/auth.service';
+import { PopupService } from '../popup-message/popup.service';
 
 @Component({
   selector: 'app-settings',
@@ -15,6 +16,7 @@ import { AuthService } from '../auth/auth.service';
 export class Settings {
   dataService = inject(DataService);
   auth = inject(AuthService);
+  popup = inject(PopupService);
 
   newCategoryValue: string = '';
 
@@ -22,11 +24,13 @@ export class Settings {
     this.refreshCategories();
   }
 
+  cat = this.dataService.categories;
   
-  myCategoryList:any={}
-  get_categoryList() {
-    this.myCategoryList=this.dataService.loadCategories(); // unwrap the signal for the template
+  get categoryList() {
+    return this.dataService.categories();
+     // this is how you bind to a signal in template
   }
+
 
   refreshCategories() {
     this.dataService.loadCategories();
@@ -41,14 +45,14 @@ export class Settings {
         this.newCategoryValue = '';
         this.refreshCategories();
       },
-      error: err => alert(err.error?.detail || 'Failed to add category'),
+      error: err => this.popup.show(err.error?.detail || 'Failed to add category', 'error'),
     });
   }
 
   deleteCategory(title: string) {
     this.dataService.deleteCategory(title).subscribe({
       next: () => this.refreshCategories(),
-      error: err => alert(err.error?.detail || 'Failed to delete category'),
+      error: err => this.popup.show(err.error?.detail || 'Failed to delete category', 'error'),
     });
   }
 

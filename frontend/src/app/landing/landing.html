@@ -1,78 +1,110 @@
-<div class="min-h-screen bg-gradient-to-b from-gray-50 to-white py-12 px-4 sm:px-6 lg:px-8">
-  <div class="max-w-6xl mx-auto space-y-12">
-    
-    <!-- Summary Boxes -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-      <div class="bg-blue-50 text-blue-900 p-6 rounded-2xl shadow hover:shadow-md transition">
-        <h2 class="text-lg font-semibold tracking-wide">Monthly Spend</h2>
-        <p class="text-3xl font-extrabold mt-2">₹{{ monthlyTotal() }}</p>
+<div class="max-w-4xl mx-auto p-6 space-y-10">
+  <!-- Header -->
+  <h1 class="text-4xl font-bold text-blue-600 border-b border-gray-300 pb-4">
+    Track Your Expenses
+  </h1>
+
+  <!-- Filters -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+    <input
+      [(ngModel)]="filterDate"
+      type="date"
+      class="border border-gray-300 px-4 py-2 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none w-full"
+      placeholder="Filter by Date"
+    />
+    <input
+      [(ngModel)]="filterCategory"
+      type="text"
+      class="border border-gray-300 px-4 py-2 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none w-full"
+      placeholder="Filter by Category"
+    />
+    <input
+      [(ngModel)]="filterAmount"
+      type="number"
+      class="border border-gray-300 px-4 py-2 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none w-full"
+      placeholder="Filter by Amount"
+    />
+  </div>
+
+  <!-- Totals -->
+  <div class="grid sm:grid-cols-2 gap-6 text-lg font-semibold text-gray-800 bg-white p-6 rounded-xl shadow">
+    <div class="flex items-center space-x-2">
+      <span class="text-2xl">📅</span>
+      <span>Monthly Total:</span>
+      <span class="text-blue-600 font-bold">₹{{ monthlyTotal() }}</span>
+    </div>
+    <div class="flex items-center space-x-2">
+      <span class="text-2xl">📈</span>
+      <span>Annual Total:</span>
+      <span class="text-blue-600 font-bold">₹{{ annualTotal() }}</span>
+    </div>
+  </div>
+
+  <!-- Expenses List -->
+  <div class="mt-6 space-y-4">
+    <div
+      *ngFor="let expense of paginatedExpenses"
+      class="border border-gray-200 rounded-xl p-5 flex justify-between items-center shadow-sm hover:shadow-md transition duration-300 bg-white"
+    >
+      <div>
+        <div class="text-lg font-medium text-gray-900">{{ expense.desc }}</div>
+        <div class="text-sm text-gray-500 mt-1">
+          {{ expense.category?.title || 'Uncategorized' }} •
+          {{ expense.date | date: 'mediumDate' }}
+        </div>
       </div>
-      <div class="bg-green-50 text-green-900 p-6 rounded-2xl shadow hover:shadow-md transition">
-        <h2 class="text-lg font-semibold tracking-wide">Annual Spend</h2>
-        <p class="text-3xl font-extrabold mt-2">₹{{ annualTotal() }}</p>
+      <div class="flex items-center space-x-5">
+        <div class="font-semibold text-blue-600 text-xl">₹{{ expense.amount }}</div>
+        <button
+          (click)="deleteExpense(expense._id)"
+          class="text-gray-700 hover:text-black transition"
+          title="Delete"
+        >
+          <mat-icon>delete</mat-icon>
+        </button>
       </div>
     </div>
 
-    <!-- Expenses Table with Pagination -->
-    <div class="bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-sm text-gray-800">
-          <thead class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider">
-            <tr>
-              <th class="px-6 py-4 text-left">Date</th>
-              <th class="px-6 py-4 text-left">Category</th>
-              <th class="px-6 py-4 text-left">Amount (₹)</th>
-              <th class="px-6 py-4 text-left">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              *ngFor="let expense of paginatedExpenses"
-              class="border-t border-gray-200 hover:bg-gray-50 transition"
-            >
-              <td class="px-6 py-4 text-sm font-medium text-gray-600 ">{{ expense.date | date: 'mediumDate' }}</td>
-              <td class="px-6 py-4 text-sm font-medium text-gray-600 ">{{ expense.category || 'N/A' }}</td>
-              <td class="px-6 py-4 text-xl text-gray-900">₹{{ expense.amount }}</td>
-              <td class="px-6 py-4">
-                <button
-                  (click)="deleteExpense(expense._id)"
-                  class="text-gray-500 hover:text-gray-700 transition"
-                  title="Delete Expense"
-                >
-                  <mat-icon class="text-xl">delete</mat-icon>
-                </button>
-              </td>
-            </tr>
-            <tr *ngIf="paginatedExpenses.length === 0">
-              <td colspan="4" class="text-center text-gray-400 py-6">
-                No expenses to display.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <div *ngIf="paginatedExpenses.length === 0" class="text-center text-gray-400 italic py-6">
+      No expenses match the filters.
+    </div>
+  </div>
 
-      <!-- Pagination Controls -->
-      <div class="flex flex-col sm:flex-row justify-between items-center gap-4 px-6 py-4 bg-gray-50 rounded-b-2xl">
-        <div class="text-sm text-gray-600 font-medium">
-          Page {{ currentPage }} of {{ totalPages }}
-        </div>
-        <div class="flex items-center gap-3">
-          <button
-            (click)="prevPage()"
-            [disabled]="currentPage === 1"
-            class="px-5 py-2 rounded-full bg-white text-gray-700 font-medium shadow-sm hover:bg-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            ‹ Prev
-          </button>
-          <button
-            (click)="nextPage()"
-            [disabled]="currentPage === totalPages"
-            class="px-5 py-2 rounded-full bg-white text-gray-700 font-medium shadow-sm hover:bg-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next ›
-          </button>
-        </div>
+  <!-- Pagination -->
+  <div class="flex justify-center items-center mt-10 space-x-6">
+    <button
+      (click)="prevPage()"
+      [disabled]="currentPage === 1"
+      class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+    >
+      ◀ Prev
+    </button>
+
+    <span class="text-sm text-gray-700 font-medium">
+      Page {{ currentPage }} of {{ totalPages }}
+    </span>
+
+    <button
+      (click)="nextPage()"
+      [disabled]="currentPage === totalPages"
+      class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+    >
+      Next ▶
+    </button>
+  </div>
+
+  <!-- Spending by Category -->
+  <div class="mt-16">
+    <h3 class="text-2xl font-semibold text-gray-700 mb-6 border-b pb-2 border-gray-300">
+      💸 Spending by Category
+    </h3>
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div
+        *ngFor="let cat of categoryTotals() | keyvalue"
+        class="flex justify-between items-center px-5 py-4 bg-white rounded-xl shadow hover:shadow-md transition"
+      >
+        <span class="text-gray-700 font-medium">{{ cat.key }}</span>
+        <span class="text-blue-600 font-bold text-lg">₹{{ cat.value.toFixed(2) }}</span>
       </div>
     </div>
   </div>

@@ -1,49 +1,145 @@
-import { Component, inject, signal, effect } from '@angular/core';
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MatIconModule } from '@angular/material/icon';
 import { FormsModule } from '@angular/forms';
+import { AuthService } from '../auth/auth.service';
 import { DataService } from '../data.service';
+import { Chart, registerables } from 'chart.js';
+Chart.register(...registerables);
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, MatIconModule, FormsModule],
   templateUrl: './profile.html',
 })
-export class Profile {
-  public dataService = inject(DataService);
+export class ProfileComponent implements OnInit {
+  private auth = inject(AuthService);
+  private data = inject(DataService);
 
-  user1 = {
-    name: '',
-    email: '',
-    avatar: '',
-    totalBudget: 0,
-  };
+  name = signal('');
+  email = signal('');
+  password = signal('');
+  loading = signal(true);
 
-  editMode = signal(false); // ✅ Start in view mode by default
+  categories = this.data.categories;
+  expenses = this.data.expenses;
+
+  totalCategories = computed(() => this.categories().length);
+  totalEntries = computed(() => this.expenses().length);
+
+  lastMonthTotal = computed(() => {
+    const now = new Date();
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return this.expenses().reduce((sum, exp) => {
+      const date = new Date(exp.date);
+      if (date.getMonth() === lastMonth.getMonth() && date.getFullYear() === lastMonth.getFullYear()) {
+        return sum + exp.amount;
+      }
+      return sum;
+    }, 0);
+  });
 
   ngOnInit() {
-    this.dataService.loadProfile();
+    this.auth.getCurrentUser().subscribe({
+      next: (user) => {
+        this.name.set(user.name);
+        this.email.set(user.email);
+        this.loading.set(false);
+        this.renderChart(); // after data loads
+      },
+      error: () => {
+        this.loading.set(false);
+      },
+    });
+  }
 
-    effect(() => {
-      const profile = this.dataService.profile();
+  renderChart() {
+    const ctx = document.getElementById('monthlyChart') as HTMLCanvasElement;
+    if (!ctx) return;
 
-      if (profile && profile.name) {
-        this.user1 = { ...profile };
-        this.editMode.set(false); // ✅ Profile exists: show view mode
-      } else {
-        this.editMode.set(true); // ✅ No profile: enter edit mode
+    const monthly = Array(12).fill(0);
+    this.expenses().forEach((exp) => {
+      const date = new Date(exp.date);
+      const month = date.getMonth();
+      monthly[month] += exp.amount;
+    });
+
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: [
+          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        ],
+        datasets: [
+          {
+            label: 'Monthly Expenses (₹)',
+            data: monthly,
+            backgroundColor: '#3b82f6',
+            borderRadius: 6,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: (val) => `₹${val}`
+            }
+          }
+        }
       }
     });
   }
 
-  save() {
-    this.dataService.saveProfile(this.user1).subscribe(() => {
-      alert('Profile saved!');
-      this.editMode.set(false); // switch to view mode after save
-    });
-  }
 
-  toggleEdit() {
-    this.editMode.set(true); // show edit form
-  }
+
+  showEditModal = signal(false);
+
+form: {
+  name?: string;
+  avatar?: string;
+  totalBudget?: number;
+  password?: string;
+} = {};
+
+
+
+openEditModal() {
+  const current = this.data.profile();
+  this.form = {
+    name: current.name || '',
+    avatar: current.avatar || '',
+    totalBudget: current.totalBudget || 0,
+    password: ''
+  };
+  this.showEditModal.set(true);
+}
+
+closeEditModal() {
+  this.showEditModal.set(false);
+}
+
+submitProfileUpdate() {
+  console.log(this.auth.getAuthHeader().get('Authorization'));
+  const payload = { ...this.form };
+  if (!payload.password) delete payload.password; // send only if updated
+
+  this.data.updateProfile(payload).subscribe({
+    next: () => {
+      this.data.loadProfile(); // Refresh view
+      this.showEditModal.set(false);
+    },
+    error: (err) => {
+      console.error('Update failed:', err);
+    },
+  });
+}
+
 }

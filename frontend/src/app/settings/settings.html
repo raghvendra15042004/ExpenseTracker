@@ -1,43 +1,48 @@
-<div class="p-6 max-w-xl mx-auto">
-  <h2 class="text-2xl font-semibold mb-4">Manage Categories</h2>
+<div class="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+  <div class="w-full max-w-xl bg-white shadow-lg rounded-2xl p-8">
+    <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center border-b pb-3">
+      Manage Categories
+    </h2>
 
-  <div class="flex gap-2 mb-4">
-    <input
-      [(ngModel)]="newCategoryValue"
-      type="text"
-      placeholder="New category"
-      class="flex-1 border border-gray-300 px-4 py-2 rounded"
-    />
-    <button
-      (click)="addCategory()"
-      class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-    >
-      Add
-    </button>
-  </div>
-
-  <ul class="space-y-2">
-    <li
-      *ngFor="let category of myCategoryList"
-      class="flex justify-between items-center bg-gray-100 px-4 py-2 rounded"
-    >
-      {{ category }}
+    <div class="flex gap-3 mb-6">
+      <input
+        [(ngModel)]="newCategoryValue"
+        type="text"
+        placeholder="New category"
+        class="flex-1 border border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+      />
       <button
-        (click)="deleteCategory(category)"
-        mat-icon-button
-        aria-label="Delete"
+        (click)="addCategory()"
+        class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow transition"
       >
-        <mat-icon>delete</mat-icon>
+        Add
       </button>
-    </li>
-  </ul>
+    </div>
 
-  <div class="mt-8">
-    <button
-      (click)="logout()"
-      class="text-red-500 hover:underline text-sm"
-    >
-      Logout
-    </button>
+    <ul class="space-y-3">
+      <li
+        *ngFor="let cat of categoryList"
+        class="flex justify-between items-center bg-gray-100 px-4 py-2 rounded-lg shadow-sm"
+      >
+        <span class="text-gray-700 font-medium">{{ cat }}</span>
+        <button
+          (click)="deleteCategory(cat)"
+          mat-icon-button
+          aria-label="Delete"
+          class="hover:bg-gray-200 rounded-full p-1"
+        >
+          <mat-icon class="text-black">delete</mat-icon>
+        </button>
+      </li>
+    </ul>
+
+    <div class="mt-10 flex justify-center">
+      <button
+        (click)="logout()"
+        class="bg-red-100 text-red-600 hover:bg-red-200 font-medium px-6 py-2 rounded-lg transition shadow-sm"
+      >
+        Logout
+      </button>
+    </div>
   </div>
 </div>

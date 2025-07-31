@@ -1,0 +1,4 @@
+<div *ngIf="show" class="popup-container" [ngClass]="'popup-' + type">
+  <strong>{{ type | titlecase }}:</strong>
+  <span>{{ message }}</span>
+</div>

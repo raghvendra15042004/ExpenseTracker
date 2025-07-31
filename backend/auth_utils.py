@@ -2,6 +2,9 @@ import os
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from fastapi import HTTPException
+import random
+import string
 
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")
 ALGORITHM = "HS256"
@@ -26,4 +29,8 @@ def decode_token(token: str):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload.get("sub")
     except JWTError:
-        return None
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+
+def generate_otp(length: int = 6) -> str:
+    return ''.join(random.choices(string.digits, k=length))

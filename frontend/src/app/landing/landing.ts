@@ -1,19 +1,74 @@
-import { Component, inject, computed } from '@angular/core';
+// landing.ts
+import { Component, computed, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { DataService } from '../data.service';
-import { MatIconModule } from '@angular/material/icon'; // ✅ Correct import
+import { MatIconModule } from '@angular/material/icon';
 
 @Component({
   selector: 'app-landing',
   standalone: true,
-  imports: [CommonModule, MatIconModule], // ✅ Fixed here
+  imports: [CommonModule, FormsModule, MatIconModule],
   templateUrl: './landing.html',
 })
-export class Landing {
+export class Landing implements OnInit {
   dataService = inject(DataService);
 
-  constructor() {
-    this.dataService.loadExpenses();
+  currentPage = 1;
+  pageSize = 4;
+
+  filterDate: string = '';
+  filterCategory: string = '';
+  filterAmount: string = '';
+
+  ngOnInit() {
+    
+    this.loadExpenses();
+  }
+
+  loadExpenses() {
+    this.dataService.loadExpenses(this.currentPage, this.pageSize);
+  }
+
+  get paginatedExpenses() {
+    // filtering happens only on current page data
+    return this.dataService.expenses().filter((exp) => {
+      const matchesDate = this.filterDate ? exp.date.startsWith(this.filterDate) : true;
+      const matchesCategory = this.filterCategory
+        ? exp.category?.title.toLowerCase().includes(this.filterCategory.toLowerCase())
+        : true;
+      const matchesAmount = this.filterAmount
+        ? exp.amount.toString().includes(this.filterAmount)
+        : true;
+      return matchesDate && matchesCategory && matchesAmount;
+    });
+  }
+
+  get totalPages() {
+    return Math.ceil(this.dataService.totalExpenseCount() / this.pageSize);
+  }
+
+  nextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      this.loadExpenses();
+    }
+  }
+
+  prevPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.loadExpenses();
+    }
+  }
+
+  deleteExpense(id: string) {
+    if (confirm("Are you sure you want to delete this expense?")) {
+      this.dataService.deleteExpense(id).subscribe({
+        next: () => this.loadExpenses(),
+        error: err => alert(err.error.detail || 'Failed to delete expense'),
+      });
+    }
   }
 
   currentMonth = new Date().getMonth();
@@ -35,37 +90,16 @@ export class Landing {
     }, 0)
   );
 
-  currentPage = 1;
-  pageSize = 5;
+  categoryTotals = computed(() => {
+    const totals: { [key: string]: number } = {};
+    this.dataService.expenses().forEach((exp: any) => {
+      const category = exp.category?.title || 'Uncategorized';
+      totals[category] = (totals[category] || 0) + exp.amount;
+    });
+    return totals;
+  });
 
-  get paginatedExpenses() {
-    const all = this.dataService.expenses();
-    const start = (this.currentPage - 1) * this.pageSize;
-    return all.slice(start, start + this.pageSize); // ✅ not a function
-  }
-
-  get totalPages() {
-    return Math.ceil(this.dataService.expenses().length / this.pageSize);
-  }
-
-  nextPage() {
-    if (this.currentPage < this.totalPages) {
-      this.currentPage++;
-    }
-  }
-
-  prevPage() {
-    if (this.currentPage > 1) {
-      this.currentPage--;
-    }
-  }
-
-  deleteExpense(id: string) {
-    if (confirm("Are you sure you want to delete this expense?")) {
-      this.dataService.deleteExpense(id).subscribe({
-        next: () => this.dataService.loadExpenses(),
-        error: err => alert(err.error.detail || 'Failed to delete expense'),
-      });
-    }
+  min(a: number, b: number): number {
+    return Math.min(a, b);
   }
 }
