@@ -10,7 +10,7 @@ from auth_utils import hash_password
 
 router = APIRouter()
 
-client = MongoClient("")
+client = MongoClient(" ")
 db = client["expense_tracker"]
 user_collection = db["users"]
 expense_collection = db["expenses"]
